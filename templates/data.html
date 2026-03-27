@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data - Image to PDF Converter</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1 class="page-title">Data Konversi</h1>
+        <p class="page-subtitle">Daftar gambar yang telah dikonversi ke PDF</p>
+
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Riwayat Konversi</span>
+                <a href="/" class="btn">
+                    <i class="fas fa-plus"></i>
+                    Upload Baru
+                </a>
+            </div>
+
+            <table id="records-table" class="display">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nama File Asli</th>
+                        <th>Ukuran File</th>
+                        <th>Tanggal</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('#records-table').DataTable({
+                ajax: {
+                    url: '/api/records',
+                    dataSrc: ''
+                },
+                columns: [
+                    { data: 'id', width: '60px' },
+                    { data: 'original_filename' },
+                    { data: 'file_size', width: '100px' },
+                    { data: 'created_at', width: '160px' },
+                    {
+                        data: null,
+                        width: '100px',
+                        className: 'actions-cell',
+                        render: function(data) {
+                            return `
+                                <a href="/download/${data.id}" class="btn-icon btn-download" title="Download PDF">
+                                    <i class="fas fa-download"></i>
+                                </a>
+                                <form action="/delete/${data.id}" method="POST" style="display:inline;">
+                                    <button type="submit" class="btn-icon btn-delete" title="Hapus"
+                                        onclick="return confirm('Yakin hapus record ini?')">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
+                            `;
+                        }
+                    }
+                ],
+                language: {
+                    url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/id.json'
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image to PDF Converter</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dropzone@5/dist/min/dropzone.min.css" type="text/css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        /* ── Upload State ── */
+        .btn-upload {
+            padding: 10px 32px;
+            font-size: 15px;
+            background-color: #4f46e5;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s, opacity 0.2s;
+        }
+        .btn-upload:hover:not(:disabled) { background-color: #4338ca; }
+        .btn-upload:disabled { opacity: 0.45; cursor: not-allowed; }
+        .btn-upload i { margin-right: 6px; }
+
+        /* ── Result State ── */
+        #result-view {
+            display: none;
+            padding: 2rem 1.5rem;
+            text-align: center;
+            animation: fadeIn 0.4s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .result-icon {
+            font-size: 4rem;
+            color: #ef4444;
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        .result-filename {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 0.3rem;
+        }
+
+        .result-subtitle {
+            font-size: 0.875rem;
+            color: #64748b;
+            margin-bottom: 2rem;
+        }
+
+        .result-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn-reset {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 22px;
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+            text-decoration: none;
+        }
+        .btn-reset:hover { background: #e2e8f0; }
+
+        .btn-download-result {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 22px;
+            background: #4f46e5;
+            color: #ffffff;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+        .btn-download-result:hover { background: #4338ca; }
+
+        /* ── Success badge ── */
+        .success-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            color: #166534;
+            border-radius: 999px;
+            padding: 4px 14px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            margin-bottom: 1.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="page-title">Image to PDF Converter</h1>
+        <p class="page-subtitle">Konversi file gambar menjadi PDF dengan mudah</p>
+
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Upload Gambar</span>
+                <a href="/data" class="btn" id="btn-lihat-data" style="display: none;">
+                    <i class="fas fa-table"></i> Lihat Data
+                </a>
+            </div>
+
+            <!-- ═══════════════════════════════════════════════
+                 STATE 1: UPLOAD VIEW (tampilan awal)
+            ════════════════════════════════════════════════ -->
+            <div id="upload-view" style="padding: 1.5rem;">
+
+                <!-- Progress Bar -->
+                <div class="progress-container" id="progress-container" style="display: none; margin-bottom: 1rem;">
+                    <div class="progress-info">
+                        <span id="progress-text">Memproses gambar...</span>
+                        <span id="progress-percent">0%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill"></div>
+                    </div>
+                    <p class="progress-note" id="progress-note">Mohon tunggu...</p>
+                </div>
+
+                <!-- Dropzone -->
+                <form action="/upload" class="dropzone" id="img-dropzone">
+                    <div class="dz-message">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <h3>Drag &amp; drop gambar di sini</h3>
+                        <p>atau klik untuk memilih file</p>
+                        <small style="color:#94a3b8;">JPG · PNG · WEBP · BMP · GIF</small>
+                    </div>
+                </form>
+
+                <!-- Tombol Upload — hanya tampil di state ini -->
+                <div style="text-align: center; margin-top: 16px;">
+                    <button id="btn-upload" class="btn btn-upload" disabled>
+                        <i class="fas fa-upload"></i> Upload &amp; Konversi
+                    </button>
+                </div>
+
+                <div id="upload-error"></div>
+            </div>
+
+            <!-- ═══════════════════════════════════════════════
+                 STATE 2: RESULT VIEW (setelah konversi selesai)
+            ════════════════════════════════════════════════ -->
+            <div id="result-view">
+                <span class="success-badge">
+                    <i class="fas fa-check-circle"></i> Konversi Berhasil
+                </span>
+
+                <i class="fas fa-file-pdf result-icon"></i>
+                <p class="result-filename" id="result-filename">file.pdf</p>
+                <p class="result-subtitle">File gambar Anda telah berhasil dikonversi ke PDF</p>
+
+                <div class="result-buttons">
+                    <!-- Tombol Download -->
+                    <a class="btn-download-result" id="btn-download-pdf" href="#">
+                        <i class="fas fa-download"></i> Download PDF
+                    </a>
+
+                    <!-- Tombol Reset → kembali ke tampilan awal -->
+                    <button class="btn-reset" id="btn-reset">
+                        <i class="fas fa-rotate-left"></i> Upload Baru
+                    </button>
+                </div>
+            </div>
+
+        </div><!-- .card -->
+    </div><!-- .container -->
+
+    <script src="https://cdn.jsdelivr.net/npm/dropzone@5/dist/min/dropzone.min.js"></script>
+    <script>
+        // ── State helpers ─────────────────────────────────────
+        function showUploadView() {
+            document.getElementById('upload-view').style.display = 'block';
+            document.getElementById('result-view').style.display  = 'none';
+        }
+
+        function showResultView(response) {
+            document.getElementById('upload-view').style.display = 'none';
+            document.getElementById('result-view').style.display  = 'block';
+
+            // isi data hasil
+            const baseName = response.filename.replace(/\.[^.]+$/, '') + '.pdf';
+            document.getElementById('result-filename').textContent = baseName;
+            document.getElementById('btn-download-pdf').href       = `/download/${response.record_id}`;
+            document.getElementById('btn-lihat-data').style.display = 'inline-flex';
+        }
+
+        // ── Variabel global ───────────────────────────────────
+        let isUploading      = false;
+        let progressInterval = null;
+        let currentFileUuid  = null;
+
+        Dropzone.autoDiscover = false;
+
+        const btnUpload = document.getElementById('btn-upload');
+
+        const myDropzone = new Dropzone("#img-dropzone", {
+            url: "/upload",
+            chunking: true,
+            chunkSize: 2 * 1024 * 1024,
+            forceChunking: true,
+            maxFiles: 1,
+            acceptedFiles: "image/jpeg,image/png,image/webp,image/bmp,image/gif",
+            addRemoveLinks: true,
+            timeout: 300000,
+            autoProcessQueue: false,
+
+            init: function() {
+                const dz = this;
+
+                this.on("addedfile", function(file) {
+                    if (isUploading) { dz.removeFile(file); return; }
+                    btnUpload.disabled = false;
+                });
+
+                this.on("removedfile", function() {
+                    if (dz.files.length === 0 && !isUploading) btnUpload.disabled = true;
+                });
+
+                btnUpload.addEventListener('click', function() {
+                    if (dz.files.length === 0 || isUploading) return;
+
+                    isUploading     = true;
+                    currentFileUuid = null;
+                    btnUpload.disabled = true;
+                    btnUpload.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses...';
+                    showProgress(5, 'Mengunggah file...');
+
+                    document.getElementById('img-dropzone').style.opacity      = '0.5';
+                    document.getElementById('img-dropzone').style.pointerEvents = 'none';
+
+                    dz.processQueue();
+                });
+
+                this.on("sending", function(file, xhr, formData) {
+                    formData.append("filename", file.name);
+                    const uid = formData.get('dzuuid');
+                    if (uid && !currentFileUuid) {
+                        currentFileUuid = uid;
+                        startProgressPolling(uid);
+                    }
+                });
+
+                this.on("uploadprogress", function(file, progress) {
+                    const pct = Math.round(progress * 0.55);
+                    if (pct > 0) updateProgressBar(pct, 'Mengunggah file...');
+                });
+
+                this.on("success", function(file, response) {
+                    stopProgressPolling();
+                    if (response.success) {
+                        updateProgressBar(100, 'Selesai!');
+                        setTimeout(() => {
+                            hideProgress();
+                            showResultView(response);   // ← tampilkan result state
+                        }, 800);
+                        this.removeFile(file);
+                        resetUploadState();
+                    } else if (!response.chunkIndex) {
+                        stopProgressPolling();
+                        hideProgress();
+                        handleError(response.message || 'Upload gagal');
+                        resetUploadState(true);
+                    }
+                });
+
+                this.on("error", function(file, message) {
+                    stopProgressPolling();
+                    hideProgress();
+                    handleError(typeof message === 'string' ? message : 'Upload gagal');
+                    resetUploadState(true);
+                });
+            }
+        });
+
+        // ── Reset: kembali ke tampilan awal ──────────────────
+        document.getElementById('btn-reset').addEventListener('click', function() {
+            showUploadView();
+            document.getElementById('upload-error').innerHTML = '';
+            document.getElementById('btn-lihat-data').style.display = 'none';
+            myDropzone.removeAllFiles(true);
+            btnUpload.disabled = true;
+            btnUpload.innerHTML = '<i class="fas fa-upload"></i> Upload & Konversi';
+        });
+
+        // ── Progress Polling ──────────────────────────────────
+        function startProgressPolling(fileUuid) {
+            stopProgressPolling();
+            progressInterval = setInterval(async () => {
+                try {
+                    const res  = await fetch(`/progress/${fileUuid}`);
+                    const data = await res.json();
+                    if (data.percent && data.percent > 55)
+                        updateProgressBar(data.percent, data.message);
+                } catch (e) { /* abaikan */ }
+            }, 600);
+        }
+
+        function stopProgressPolling() {
+            if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
+        }
+
+        function resetUploadState(enableBtn = false) {
+            isUploading = false;
+            btnUpload.disabled = !enableBtn;
+            btnUpload.innerHTML = '<i class="fas fa-upload"></i> Upload & Konversi';
+            document.getElementById('img-dropzone').style.opacity      = '1';
+            document.getElementById('img-dropzone').style.pointerEvents = 'auto';
+        }
+
+        // ── Progress UI ───────────────────────────────────────
+        function showProgress(percent, message) {
+            document.getElementById('progress-container').style.display = 'block';
+            updateProgressBar(percent, message);
+        }
+
+        function updateProgressBar(percent, message) {
+            document.getElementById('progress-fill').style.width     = percent + '%';
+            document.getElementById('progress-percent').textContent  = Math.round(percent) + '%';
+            document.getElementById('progress-text').textContent     = message || 'Memproses...';
+
+            const note = document.getElementById('progress-note');
+            if      (percent < 20)  note.textContent = 'Mengunggah chunk ke server...';
+            else if (percent < 55)  note.textContent = 'Mengirim potongan file...';
+            else if (percent < 65)  note.textContent = 'Merakit file dari chunks...';
+            else if (percent < 80)  note.textContent = 'Membuka & memproses gambar...';
+            else if (percent < 92)  note.textContent = 'Membuat file PDF...';
+            else if (percent < 100) note.textContent = 'Menyimpan ke database...';
+            else                    note.textContent = 'Selesai!';
+        }
+
+        function hideProgress() {
+            setTimeout(() => {
+                document.getElementById('progress-container').style.display = 'none';
+                document.getElementById('progress-fill').style.width        = '0%';
+                document.getElementById('progress-percent').textContent     = '0%';
+            }, 1000);
+        }
+
+        // ── Error handler ─────────────────────────────────────
+        function handleError(message) {
+            document.getElementById('upload-error').innerHTML = `
+                <div class="alert error" style="margin-top: 1rem;">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <span>Gagal: ${message}</span>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
